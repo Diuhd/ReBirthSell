@@ -1,2 +1,13 @@
 # ReBirthSell
 Python reverse shell. Simplistic application and embedment.
+
+# What is this Repository?
+This repository is for my latest project, a reverse shell made in Python. A reverse shell opens a server in the attacker's computer, and connects the victim of the attack.
+Please use this for only educational purposes. You are responsible for any illegal action made with this project.
+
+# How to Use:
+1. Go to the Releases section, or clone the repository (git clone)
+2. Use the Update.exe and enter your local IPV4 address, or change it in client/config/config.json.
+3. Go to server directory, and run server.py
+4. Using any method, send the client.pyw file to the victim, and make them run it.
+5. You have connected to the victim's shell. Have fun!
