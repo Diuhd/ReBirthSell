@@ -5,6 +5,9 @@ Python reverse shell. Simplistic application and embedment.
 This repository is for my latest project, a reverse shell made in Python. A reverse shell opens a server in the attacker's computer, and connects the victim of the attack.
 Please use this for only educational purposes. You are responsible for any illegal action made with this project.
 
+![picture](https://github.com/Diuhd/ReBirthSell/assets/86362183/944b9d87-cc14-49e2-bf0b-96bdf7c2206a)
+
+
 # How to Use:
 1. Go to the Releases section, or clone the repository (git clone)
 2. Use the Update.exe and enter your local IPV4 address, or change it in client/config/config.json.
